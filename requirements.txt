@@ -1,0 +1,6 @@
+loguru==0.7.3
+curl_cffi==0.15.0
+websockets==17.1
+wasmtime==47.0.1
+python-dotenv==1.2.2
+seleniumbase==4.52.2
