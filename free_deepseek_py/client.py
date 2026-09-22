@@ -21,6 +21,7 @@ logger.remove()
 
 class DeepSeekClient:
     def __init__(self):
+        self._tts = TTS
         self._chat = Chat
         self._chats = Chats
         self._files = Files
@@ -106,6 +107,23 @@ class DeepSeekClient:
             yield chunk
     
     
+    async def regenerate(self, chat_id: str, message_id: int) -> dict:
+        validation.validate_chat_id(chat_id)
+        validation.validate_int(message_id, 'message_id', min_value=2)
+        
+        message = await self._message.regenerate(chat_id, message_id)
+        return message
+    
+    
+    async def regenerate_stream(self, chat_id: str, message_id: int):
+        validation.validate_chat_id(chat_id)
+        validation.validate_int(message_id, 'message_id', min_value=2)
+        
+        regenerate_stream = self._message.regenerate_stream(chat_id, message_id)
+        async for chunk in regenerate_stream:
+            yield chunk
+    
+    
     async def solve_pow_challenge(self, target_type: Literal['message', 'file']) -> dict:
         validation.validate_str(target_type, 'target_type')
        
@@ -126,21 +144,21 @@ class DeepSeekClient:
     
     async def get_audio(self, chat_id: str, message_id: int) -> dict:
         validation.validate_chat_id(chat_id)
-        validation.validate_int(message_id, 'message_id', min_value=1)
+        validation.validate_int(message_id, 'message_id', min_value=2)
         
-        audio = await TTS.get_audio(chat_id, message_id)
+        audio = await self._tts.get_audio(chat_id, message_id)
         return audio
     
     
     async def load_voices(self) -> dict:
-        voices = await TTS.load_voices()
+        voices = await self._tts.load_voices()
         return {
             'voices': voices['voices']
         }
     
     
     async def get_voice(self) -> dict:
-        voices = await TTS.load_voices()
+        voices = await self._tts.load_voices()
         return {
             'voice_id': voices['current_voice_id']
         }
@@ -149,7 +167,7 @@ class DeepSeekClient:
     async def set_voice(self, new_voice_id: str) -> dict:
         validation.validate_str(new_voice_id, 'new_voice_id')
         
-        new_voice_id = await TTS.set_voice(new_voice_id)
+        new_voice_id = await self._tts.set_voice(new_voice_id)
         return new_voice_id
     
     

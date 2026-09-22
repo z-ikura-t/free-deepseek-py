@@ -9,7 +9,7 @@ This is not the official DeepSeek API and not a local model. It is a browser-bas
 
 ## Overview
 - **Chats** — list, create, load, rename, delete chats
-- **Messages** — send prompts, receive responses, stream chunks
+- **Messages** — send prompts, receive responses, regenerate, stream chunks
 - **Files** — upload files and attach to messages
 - **Vision** — analyze images via file uploads
 - **TTS** — generate text-to-speech audio for a specific message (Ogg Opus), with voice selection
@@ -145,12 +145,12 @@ chat = await client.load_chat(chat_id)
 Change the title of a chat by ID.
 
 ```python
-result = await client.update_chat_title(chat_id, 'New Title')
+result = await client.update_chat_title(chat_id, new_title)
 ```
 
 **Replace:**
 - `chat_id` — actual chat ID
-- `'New Title'` — new chat title
+- `new_title` — new chat title
 
 ### Upload files
 
@@ -171,7 +171,7 @@ files = await client.upload_files([
 
 ### Send a message
 
-Send a user message and receive the assistant's response. Supports streaming for real-time output and file attachments, including images for vision-based analysis.
+Send a user message and receive the assistant's response. Supports streaming for real-time output, file attachments (including images for vision-based analysis), web search, and thinking mode.
 
 ```python
 response = await client.completion(
@@ -191,38 +191,68 @@ response = await client.completion(
 ### Send a message (streaming)
 
 ```python
-last_type = None
-
-async for chunk in client.completion_stream(chat_id, None, 'hi'):
-    chunk_type = chunk['type']
+is_thinking = False
+async for chunk in client.completion_stream(chat_id, parent_message_id, prompt, file_ids=[file_id1, file_id2]):
+    if chunk['type'] == 'think':
+        if not is_thinking:
+            print('\n[think] ', end='', flush=True)
+            is_thinking = True
+        print(chunk['content'], end='', flush=True)
     
-    if chunk_type == 'think':
-        if last_type != 'think':
-            print('\n[think] ', end='')
-        print(chunk['content'], end='')
+    elif chunk['type'] == 'response':
+        if is_thinking:
+            print('\n\n[response] ', end='', flush=True)
+            is_thinking = False
+        print(chunk['content'], end='', flush=True)
     
-    elif chunk_type == 'response':
-        if last_type != 'response':
-            print('\n[response] ', end='')
-        print(chunk['content'], end='')
-    
-    elif chunk_type == 'file':
-        print(f'\n[file] {chunk["name"]} ({chunk["size"]} bytes)')
-    
-    elif chunk_type == 'message_data':
-        print(f'\n[message] id={chunk["message_id"]} role={chunk["role"]}')
-    
-    last_type = chunk_type
+    elif chunk['type'] == 'message_data':
+        print(f'\nid={chunk["message_id"]} role={chunk["role"]}')
 ```
 
 **Replace:**
 - `chat_id` — actual chat ID
+- `parent_message_id` — `None` for the first message, or the ID of the previous assistant message
+- `prompt` — your message text
+- `file_id1`, `file_id2` — file IDs from **Upload files**
 
 **Chunk types:**
 - `message_data` — final message IDs
 - `think` — model's internal reasoning
 - `response` — final answer text
 - `file` — attached file
+- `error` — error occurred during streaming
+
+### Regenerate a message
+
+Regenerate an assistant's response in an existing chat. Supports web search and thinking mode.
+
+```python
+response = await client.regenerate(
+    chat_id=chat_id,
+    message_id=message_id
+)
+```
+
+**Replace:**
+- `chat_id` — actual chat ID
+- `message_id` — ID of the **assistant** message
+
+### Regenerate a message (streaming)
+
+```python
+async for chunk in client.regenerate_stream(chat_id, message_id):
+    print(chunk)
+```
+
+**Replace:**
+- `chat_id` — actual chat ID
+- `message_id` — ID of the **assistant** message
+
+**Chunk types:**
+- `message_data` — final message IDs
+- `think` — model's internal reasoning
+- `response` — final answer text
+- `error` — error occurred during streaming
 
 ### Generate audio for an assistant message
 
