@@ -66,6 +66,31 @@ How to get the token manually:
 - Do not commit or publish your `.env` file.
 - The token will change when you log out of your DeepSeek account.
 
+## Create a client
+
+The client holds a single shared `AsyncSession` for all requests. Always
+use it as an async context manager:
+
+```python
+from free_deepseek_py.client import DeepSeekClient
+
+async with DeepSeekClient() as client:
+    ...
+```
+
+Or close the session manually:
+
+```python
+from free_deepseek_py.client import DeepSeekClient
+
+client = DeepSeekClient()
+
+try:
+    ...
+finally:
+    await client.close()
+```
+
 ## Methods
 
 ### Health
@@ -362,55 +387,54 @@ ticket = await client.get_ticket(scope)
 import asyncio
 from free_deepseek_py.client import DeepSeekClient
 
-client = DeepSeekClient()
-
 async def main():
-    # Load chats
-    chats = await client.load_chats_by_range(0, 1)
-    print(f'Total chats: {len(chats["chats"])}')
-    if not chats['chats']: return
-    
-    # Take the last chat
-    last_chat_id = chats['chats'][0]['chat_id']
-    print(f'Last chat ID: {last_chat_id}')
-    
-    # Load the chat
-    chat = await client.load_chat(last_chat_id)
-    current_message_id = chat['current_message_id']
-    print(f'Current message ID: {current_message_id}')
-    
-    # Upload a file
-    files = await client.upload_files(['/path/to/image.jpg'])
-    if not files['files'][0]['ok']: raise Exception(files['files'][0]['detail'])
-    file_id = files['files'][0]['file_id']
-    print(f'Uploaded: {file_id}')
-    
-    # Enable search and thinking
-    client.set_search(True)
-    client.set_thinking(True)
-    print('Search and thinking enabled')
-    
-    # Send a message with the file
-    response = await client.completion(
-        chat_id=last_chat_id,
-        parent_message_id=current_message_id,
-        prompt='What is in this image?',
-        file_ids=[file_id],
-    )
-    print('Response:', response['assistant']['content'])
-    
-    # Change voice
-    await client.set_voice('echo')
-    print('Voice: echo')
-    
-    # Generate audio
-    audio = await client.get_audio(
-        last_chat_id,
-        response['assistant']['message_id'],
-    )
-    with open('response.opus', 'wb') as f:
-        f.write(audio['audio_bytes'])
-    print('Saved: response.opus')
+    async with DeepSeekClient() as client:
+        # Load chats
+        chats = await client.load_chats_by_range(0, 1)
+        print(f'Total chats: {len(chats["chats"])}')
+        if not chats['chats']: return
+        
+        # Take the last chat
+        last_chat_id = chats['chats'][0]['chat_id']
+        print(f'Last chat ID: {last_chat_id}')
+        
+        # Load the chat
+        chat = await client.load_chat(last_chat_id)
+        current_message_id = chat['current_message_id']
+        print(f'Current message ID: {current_message_id}')
+        
+        # Upload a file
+        files = await client.upload_files(['/path/to/image.jpg'])
+        if not files['files'][0]['ok']: raise Exception(files['files'][0]['detail'])
+        file_id = files['files'][0]['file_id']
+        print(f'Uploaded: {file_id}')
+        
+        # Enable search and thinking
+        client.set_search(True)
+        client.set_thinking(True)
+        print('Search and thinking enabled')
+        
+        # Send a message with the file
+        response = await client.completion(
+            chat_id=last_chat_id,
+            parent_message_id=current_message_id,
+            prompt='What is in this image?',
+            file_ids=[file_id],
+        )
+        print('Response:', response['assistant']['content'])
+        
+        # Change voice
+        await client.set_voice('echo')
+        print('Voice: echo')
+        
+        # Generate audio
+        audio = await client.get_audio(
+            last_chat_id,
+            response['assistant']['message_id'],
+        )
+        with open('response.opus', 'wb') as f:
+            f.write(audio['audio_bytes'])
+        print('Saved: response.opus')
 
 
 asyncio.run(main())
